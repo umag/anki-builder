@@ -16,8 +16,8 @@ import (
 const aiRequestTimeout = 30 * time.Second
 
 const (
-	geminiNewerModel    = "gemini-2.5-flash"
-	geminiFallbackModel = "gemini-2.0-flash"
+	geminiDefaultModel  = "gemini-2.5-flash"
+	geminiFallbackModel = "gemini-2.5-flash-lite"
 )
 
 type Client struct {
@@ -33,9 +33,9 @@ func NewClient(apiKey string) *Client {
 }
 
 func (g *Client) GenerateContent(ctx context.Context, prompt string) (string, error) {
-	result, initialErr := g.doRequest(ctx, geminiNewerModel, prompt)
+	result, initialErr := g.doRequest(ctx, geminiDefaultModel, prompt)
 	if initialErr != nil {
-		log.Printf("Request with model '%s' failed: %v.\nRetrying with fallback model '%s'", geminiNewerModel, initialErr, geminiFallbackModel)
+		log.Printf("Request with model '%s' failed: %v.\nRetrying with fallback model '%s'", geminiDefaultModel, initialErr, geminiFallbackModel)
 		var err error
 		result, err = g.doRequest(ctx, geminiFallbackModel, prompt)
 		if err != nil {
