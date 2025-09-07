@@ -7,11 +7,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 const aiRequestTimeout = 30 * time.Second
+
+const (
+	geminiNewerModel    = "gemini-2.5-flash"
+	geminiFallbackModel = "gemini-2.0-flash"
+)
 
 type Client struct {
 	APIKey  string
@@ -26,14 +33,31 @@ func NewClient(apiKey string) *Client {
 }
 
 func (g *Client) GenerateContent(ctx context.Context, prompt string) (string, error) {
-	url := fmt.Sprintf("%s/gemini-2.5-flash:generateContent?key=%s", g.BaseURL, g.APIKey)
+	result, initialErr := g.doRequest(ctx, geminiNewerModel, prompt)
+	if initialErr != nil {
+		log.Printf("Request with model '%s' failed: %v.\nRetrying with fallback model '%s'", geminiNewerModel, initialErr, geminiFallbackModel)
+		var err error
+		result, err = g.doRequest(ctx, geminiFallbackModel, prompt)
+		if err != nil {
+			return "", fmt.Errorf("both Gemini model requests failed; initial error: %w; fallback error: %w", initialErr, err)
+		}
+	}
 
-	requestBody := map[string]interface{}{
-		"contents": []map[string]interface{}{
+	return result, nil
+}
+
+func (g *Client) doRequest(ctx context.Context, model string, prompt string) (string, error) {
+	geminiURL, err := url.JoinPath(g.BaseURL, model+":generateContent")
+	if err != nil {
+		return "", fmt.Errorf("failed to construct URL: %w", err)
+	}
+
+	requestBody := RequestBody{
+		Contents: []Content{
 			{
-				"parts": []map[string]interface{}{
+				Parts: []Part{
 					{
-						"text": prompt,
+						Text: prompt,
 					},
 				},
 			},
@@ -45,11 +69,12 @@ func (g *Client) GenerateContent(ctx context.Context, prompt string) (string, er
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, geminiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
+	req.Header.Set("X-Goog-Api-Key", g.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: aiRequestTimeout}
@@ -68,15 +93,7 @@ func (g *Client) GenerateContent(ctx context.Context, prompt string) (string, er
 		return "", fmt.Errorf("API request failed with status %d and body %s", resp.StatusCode, respBody)
 	}
 
-	var response struct {
-		Candidates []struct {
-			Content struct {
-				Parts []struct {
-					Text string `json:"text"`
-				} `json:"parts"`
-			} `json:"content"`
-		} `json:"candidates"`
-	}
+	var response ResponseBody
 
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {

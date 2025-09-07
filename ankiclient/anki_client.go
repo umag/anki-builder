@@ -23,19 +23,16 @@ type AnkiConnectResponse struct {
 	Error  interface{} `json:"error"`
 }
 
-// AnkiConnectClient handles AnkiConnect API interactions
 type AnkiConnectClient struct {
 	BaseURL string
 }
 
-// NewAnkiConnectClient creates a new AnkiConnect client
 func NewAnkiConnectClient(baseURL string) *AnkiConnectClient {
 	return &AnkiConnectClient{
 		BaseURL: baseURL,
 	}
 }
 
-// IsAvailable checks if AnkiConnect is available
 func (a *AnkiConnectClient) IsAvailable(ctx context.Context) bool {
 	request := AnkiConnectRequest{
 		Action:  "version",
@@ -47,7 +44,6 @@ func (a *AnkiConnectClient) IsAvailable(ctx context.Context) bool {
 	return err == nil
 }
 
-// AddNote adds a note to Anki
 func (a *AnkiConnectClient) AddNote(ctx context.Context, deckName, modelName string, fields map[string]string, tags []string) error {
 	note := map[string]interface{}{
 		"deckName":  deckName,
@@ -68,7 +64,6 @@ func (a *AnkiConnectClient) AddNote(ctx context.Context, deckName, modelName str
 	return err
 }
 
-// GetDeckNames returns available deck names
 func (a *AnkiConnectClient) GetDeckNames(ctx context.Context) ([]string, error) {
 	request := AnkiConnectRequest{
 		Action:  "deckNames",
@@ -93,7 +88,6 @@ func (a *AnkiConnectClient) GetDeckNames(ctx context.Context) ([]string, error) 
 	return decks, nil
 }
 
-// GetModelNames returns available model names
 func (a *AnkiConnectClient) GetModelNames(ctx context.Context) ([]string, error) {
 	request := AnkiConnectRequest{
 		Action:  "modelNames",
@@ -118,7 +112,6 @@ func (a *AnkiConnectClient) GetModelNames(ctx context.Context) ([]string, error)
 	return models, nil
 }
 
-// GetModelFieldNames returns field names for a specific model
 func (a *AnkiConnectClient) GetModelFieldNames(ctx context.Context, modelName string) ([]string, error) {
 	request := AnkiConnectRequest{
 		Action:  "modelFieldNames",

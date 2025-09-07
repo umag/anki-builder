@@ -38,29 +38,35 @@ type AIResponse struct {
 	Notes        []string `json:"notes"`
 }
 
-//nolint:forbidigo // fmt prints are cute
 func main() {
-	cfg := config.Load()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	log.SetFlags(0)
+
+	cfg := config.Load()
+
+	ankiClient := ankiclient.NewAnkiConnectClient(cfg.AnkiConnectURL)
+	if !ankiClient.IsAvailable(ctx) {
+		log.Fatalf("AnkiConnect is not available at %s\n", ankiClient.BaseURL) //nolint:gocritic // os.Exit is fine here
+	}
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		sig := <-sigChan
-		fmt.Printf("\nReceived %v signal. Shutting down...\n", sig)
+		log.Printf("\nReceived %v signal. Shutting down...\n", sig)
 		cancel()
 
 		time.Sleep(shutdownTimeout)
-		fmt.Printf("Slept for %s, force exit triggered", shutdownTimeout)
+		log.Printf("Slept for %s, force exit triggered\n", shutdownTimeout)
 		os.Exit(1)
 	}()
 
-	fmt.Println("Finnish Anki Card Builder")
-	fmt.Printf("Using AI Provider: gemini\n")
-	fmt.Println("Enter Finnish words or phrases (to exit use Ctrl+C or type 'q', 'quit' or 'exit'):")
+	log.Print("Finnish Anki Card Builder")
+	log.Printf("Using AI Provider: gemini\n")
+	log.Print("Enter Finnish words or phrases (to exit use Ctrl+C or type 'q', 'quit' or 'exit'):")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	dataChan := make(chan string)
@@ -68,7 +74,7 @@ func main() {
 loop:
 	for {
 		go func() {
-			fmt.Print("> ")
+			fmt.Print("> ") //nolint:forbidigo // need it here for proper prompt
 			if !scanner.Scan() {
 				dataChan <- "quit"
 			}
@@ -93,32 +99,32 @@ loop:
 			continue
 		}
 
-		fmt.Printf("Processing: %s\n", input)
+		log.Printf("Processing: %s", input)
 
 		card, err := generateCard(ctx, cfg, input)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				fmt.Println("Operation cancelled. Shutting down...")
+				log.Print("Operation cancelled. Shutting down...")
 				return
 			}
-			fmt.Printf("Error generating card: %v\n", err)
+			log.Printf("Error generating card: %v\n", err)
 			continue
 		}
 
-		err = addCardToAnki(ctx, cfg, card)
+		err = addCardToAnki(ctx, ankiClient, cfg.AnkiDeck, card)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				fmt.Println("Operation cancelled. Shutting down...")
+				log.Print("Operation cancelled. Shutting down...")
 				break loop
 			}
-			fmt.Printf("Error adding card to Anki: %v\n", err)
+			log.Printf("Error adding card to Anki: %v\n", err)
 			continue
 		}
 
-		fmt.Printf("✅ Successfully added card for '%s'\n\n", input)
+		log.Printf("✅ Successfully added card for: \nword: '%s'", card.Finnish)
 	}
 
-	fmt.Println("Goodbye!")
+	log.Print("Goodbye!")
 }
 
 func generateCard(ctx context.Context, cfg *config.Config, input string) (*FinnishCard, error) {
@@ -186,21 +192,16 @@ func parseAIResponse(responseText string) (*AIResponse, error) {
 	return &aiResponse, nil
 }
 
-func addCardToAnki(ctx context.Context, cfg *config.Config, card *FinnishCard) error {
-	client := ankiclient.NewAnkiConnectClient(cfg.AnkiConnectURL)
-
-	// Check if AnkiConnect is available
+func addCardToAnki(ctx context.Context, client *ankiclient.AnkiConnectClient, deckname string, card *FinnishCard) error {
 	if !client.IsAvailable(ctx) {
-		return fmt.Errorf("AnkiConnect is not available at %s", cfg.AnkiConnectURL)
+		return fmt.Errorf("AnkiConnect is not available at %s", client.BaseURL)
 	}
 
-	// Try to get available models to determine the correct field structure
 	models, err := client.GetModelNames(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get model names: %w", err)
 	}
 
-	// Default to Basic model, but prefer a Finnish model if available
 	modelName := "Basic"
 	for _, model := range models {
 		if strings.Contains(strings.ToLower(model), "finnish") {
@@ -209,7 +210,6 @@ func addCardToAnki(ctx context.Context, cfg *config.Config, card *FinnishCard) e
 		}
 	}
 
-	// Get field names for the selected model
 	fields, err := client.GetModelFieldNames(ctx, modelName)
 	if err != nil {
 		log.Printf("Warning: Could not get field names for model %s: %v", modelName, err)
@@ -217,10 +217,8 @@ func addCardToAnki(ctx context.Context, cfg *config.Config, card *FinnishCard) e
 		fields = []string{"Front", "Back"}
 	}
 
-	// Create field mapping based on available fields
 	fieldMap := make(map[string]string)
 
-	// Check if we have the custom Finnish fields from the image
 	hasCustomFields := false
 	customFieldNames := []string{"Finnish", "Translation", "Finnish Example", "Notes"}
 	for _, customField := range customFieldNames {
@@ -236,19 +234,17 @@ func addCardToAnki(ctx context.Context, cfg *config.Config, card *FinnishCard) e
 	}
 
 	if hasCustomFields {
-		// Use the custom field structure
 		fieldMap["Finnish"] = card.Finnish
 		fieldMap["Translation"] = card.Translation
 		fieldMap["Finnish Example"] = card.FinnishExample
 		fieldMap["Notes"] = card.Notes
 	} else {
-		// Fall back to Basic model structure
 		fieldMap["Front"] = card.Finnish
 		fieldMap["Back"] = fmt.Sprintf("**Translation:** %s\n\n**Examples:**\n%s\n\n**Notes:**\n%s",
 			card.Translation, card.FinnishExample, card.Notes)
 	}
 
-	err = client.AddNote(ctx, cfg.AnkiDeck, modelName, fieldMap, []string{"auto-generated", "finnish"})
+	err = client.AddNote(ctx, deckname, modelName, fieldMap, []string{"auto-generated", "finnish"})
 	if err != nil {
 		return fmt.Errorf("failed to add note: %w", err)
 	}
