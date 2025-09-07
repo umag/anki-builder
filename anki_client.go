@@ -1,3 +1,4 @@
+//nolint:mnd // fuck you
 package main
 
 import (
@@ -8,6 +9,8 @@ import (
 	"net/http"
 	"time"
 )
+
+const ankiRequestTimeout = 5 * time.Second
 
 // AnkiConnectClient handles AnkiConnect API interactions
 type AnkiConnectClient struct {
@@ -70,7 +73,7 @@ func (a *AnkiConnectClient) GetDeckNames(ctx context.Context) ([]string, error) 
 	var decks []string
 	if result, ok := response.Result.([]interface{}); ok {
 		for _, deck := range result {
-			if deckName, ok := deck.(string); ok {
+			if deckName, ok2 := deck.(string); ok2 {
 				decks = append(decks, deckName)
 			}
 		}
@@ -95,7 +98,7 @@ func (a *AnkiConnectClient) GetModelNames(ctx context.Context) ([]string, error)
 	var models []string
 	if result, ok := response.Result.([]interface{}); ok {
 		for _, model := range result {
-			if modelName, ok := model.(string); ok {
+			if modelName, ok2 := model.(string); ok2 {
 				models = append(models, modelName)
 			}
 		}
@@ -122,7 +125,7 @@ func (a *AnkiConnectClient) GetModelFieldNames(ctx context.Context, modelName st
 	var fields []string
 	if result, ok := response.Result.([]interface{}); ok {
 		for _, field := range result {
-			if fieldName, ok := field.(string); ok {
+			if fieldName, ok2 := field.(string); ok2 {
 				fields = append(fields, fieldName)
 			}
 		}
@@ -135,20 +138,20 @@ func (a *AnkiConnectClient) GetModelFieldNames(ctx context.Context, modelName st
 func (a *AnkiConnectClient) SendRequest(ctx context.Context, request AnkiConnectRequest) (*AnkiConnectResponse, error) {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %v", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", a.BaseURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.BaseURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: ankiRequestTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %v", err)
+		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -159,7 +162,7 @@ func (a *AnkiConnectClient) SendRequest(ctx context.Context, request AnkiConnect
 	var response AnkiConnectResponse
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode response: %v", err)
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if response.Error != nil {

@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 )
 
-// Config holds application configuration
 type Config struct {
 	AIProvider     string `json:"aiProvider"` // "gemini" or "openai"
 	GeminiAPIKey   string `json:"geminiApiKey"`
@@ -19,7 +19,6 @@ type Config struct {
 	AnkiConnectURL string `json:"ankiConnectUrl"`
 }
 
-// FinnishCard represents the data structure for a Finnish vocabulary card
 type FinnishCard struct {
 	Finnish        string
 	Translation    string
@@ -27,26 +26,24 @@ type FinnishCard struct {
 	Notes          string
 }
 
-// AIResponse represents the structured response from AI
 type AIResponse struct {
 	Translations []string `json:"translations"`
 	Examples     []string `json:"examples"`
 	Notes        string   `json:"notes"`
 }
 
-// AnkiConnectRequest represents a request to AnkiConnect
 type AnkiConnectRequest struct {
 	Action  string                 `json:"action"`
 	Version int                    `json:"version"`
 	Params  map[string]interface{} `json:"params"`
 }
 
-// AnkiConnectResponse represents a response from AnkiConnect
 type AnkiConnectResponse struct {
 	Result interface{} `json:"result"`
 	Error  interface{} `json:"error"`
 }
 
+//nolint:forbidigo // fmt prints are cute
 func main() {
 	config := loadConfig()
 
@@ -129,7 +126,7 @@ func generateCard(config *Config, input string) (*FinnishCard, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to query AI provider: %v", err)
+		return nil, fmt.Errorf("failed to query AI provider: %w", err)
 	}
 
 	// Create card from AI response
@@ -151,7 +148,7 @@ func generateWithGemini(config *Config, input string) (*AIResponse, error) {
 
 	responseText, err := client.GenerateContent(ctx, prompt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate content with Gemini: %v", err)
+		return nil, fmt.Errorf("failed to generate content with Gemini: %w", err)
 	}
 
 	return parseAIResponse(responseText)
@@ -165,7 +162,7 @@ func generateWithOpenAI(config *Config, input string) (*AIResponse, error) {
 
 	responseText, err := client.GenerateContent(ctx, prompt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate content with OpenAI: %v", err)
+		return nil, fmt.Errorf("failed to generate content with OpenAI: %w", err)
 	}
 
 	return parseAIResponse(responseText)
@@ -208,7 +205,7 @@ func parseAIResponse(responseText string) (*AIResponse, error) {
 	end := strings.LastIndex(responseText, "}")
 
 	if start == -1 || end == -1 {
-		return nil, fmt.Errorf("no JSON found in response")
+		return nil, errors.New("no JSON found in response")
 	}
 
 	jsonStr := responseText[start : end+1]
@@ -216,7 +213,7 @@ func parseAIResponse(responseText string) (*AIResponse, error) {
 	var aiResponse AIResponse
 	err := json.Unmarshal([]byte(jsonStr), &aiResponse)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON response: %v", err)
+		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 
 	return &aiResponse, nil
@@ -234,7 +231,7 @@ func addCardToAnki(config *Config, card *FinnishCard) error {
 	// Try to get available models to determine the correct field structure
 	models, err := client.GetModelNames(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get model names: %v", err)
+		return fmt.Errorf("failed to get model names: %w", err)
 	}
 
 	// Default to Basic model, but prefer a Finnish model if available
@@ -288,7 +285,7 @@ func addCardToAnki(config *Config, card *FinnishCard) error {
 	// Add the card to Anki
 	err = client.AddNote(ctx, config.AnkiDeck, modelName, fieldMap, []string{"auto-generated", "finnish"})
 	if err != nil {
-		return fmt.Errorf("failed to add note: %v", err)
+		return fmt.Errorf("failed to add note: %w", err)
 	}
 
 	return nil
