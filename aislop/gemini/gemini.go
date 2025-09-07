@@ -15,20 +15,20 @@ import (
 
 const aiRequestTimeout = 30 * time.Second
 
+const geminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models"
+
 const (
 	geminiDefaultModel  = "gemini-2.5-flash"
 	geminiFallbackModel = "gemini-2.5-flash-lite"
 )
 
 type Client struct {
-	APIKey  string
-	BaseURL string
+	apiKey string
 }
 
 func NewClient(apiKey string) *Client {
 	return &Client{
-		APIKey:  apiKey,
-		BaseURL: "https://generativelanguage.googleapis.com/v1beta/models",
+		apiKey: apiKey,
 	}
 }
 
@@ -47,7 +47,7 @@ func (g *Client) GenerateContent(ctx context.Context, prompt string) (string, er
 }
 
 func (g *Client) doRequest(ctx context.Context, model string, prompt string) (string, error) {
-	geminiURL, err := url.JoinPath(g.BaseURL, model+":generateContent")
+	geminiURL, err := url.JoinPath(geminiBaseURL, model+":generateContent")
 	if err != nil {
 		return "", fmt.Errorf("failed to construct URL: %w", err)
 	}
@@ -74,7 +74,7 @@ func (g *Client) doRequest(ctx context.Context, model string, prompt string) (st
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("X-Goog-Api-Key", g.APIKey)
+	req.Header.Set("X-Goog-Api-Key", g.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{Timeout: aiRequestTimeout}

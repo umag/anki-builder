@@ -40,7 +40,7 @@ func (a *AnkiConnectClient) IsAvailable(ctx context.Context) bool {
 		Params:  map[string]interface{}{},
 	}
 
-	_, err := a.SendRequest(ctx, request)
+	_, err := a.doRequest(ctx, request)
 	return err == nil
 }
 
@@ -60,7 +60,7 @@ func (a *AnkiConnectClient) AddNote(ctx context.Context, deckName, modelName str
 		},
 	}
 
-	_, err := a.SendRequest(ctx, request)
+	_, err := a.doRequest(ctx, request)
 	return err
 }
 
@@ -71,7 +71,7 @@ func (a *AnkiConnectClient) GetDeckNames(ctx context.Context) ([]string, error) 
 		Params:  map[string]interface{}{},
 	}
 
-	response, err := a.SendRequest(ctx, request)
+	response, err := a.doRequest(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (a *AnkiConnectClient) GetModelNames(ctx context.Context) ([]string, error)
 		Params:  map[string]interface{}{},
 	}
 
-	response, err := a.SendRequest(ctx, request)
+	response, err := a.doRequest(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (a *AnkiConnectClient) GetModelFieldNames(ctx context.Context, modelName st
 		},
 	}
 
-	response, err := a.SendRequest(ctx, request)
+	response, err := a.doRequest(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -138,8 +138,7 @@ func (a *AnkiConnectClient) GetModelFieldNames(ctx context.Context, modelName st
 	return fields, nil
 }
 
-// SendRequest sends a request to AnkiConnect and returns the response
-func (a *AnkiConnectClient) SendRequest(ctx context.Context, request AnkiConnectRequest) (*AnkiConnectResponse, error) {
+func (a *AnkiConnectClient) doRequest(ctx context.Context, request AnkiConnectRequest) (*AnkiConnectResponse, error) {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
