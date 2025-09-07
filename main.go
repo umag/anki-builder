@@ -9,15 +9,11 @@ import (
 	"log"
 	"os"
 	"strings"
-)
 
-type Config struct {
-	AIProvider     string `json:"aiProvider"` // "gemini" or "openai"
-	GeminiAPIKey   string `json:"geminiApiKey"`
-	OpenAIAPIKey   string `json:"openaiApiKey"`
-	AnkiDeck       string `json:"ankiDeck"`
-	AnkiConnectURL string `json:"ankiConnectUrl"`
-}
+	"anki-builder/aislop/gemini"
+	"anki-builder/ankiclient"
+	"anki-builder/config"
+)
 
 type FinnishCard struct {
 	Finnish        string
@@ -27,28 +23,18 @@ type FinnishCard struct {
 }
 
 type AIResponse struct {
+	Phrase       string   `json:"phrase"`
 	Translations []string `json:"translations"`
 	Examples     []string `json:"examples"`
-	Notes        string   `json:"notes"`
-}
-
-type AnkiConnectRequest struct {
-	Action  string                 `json:"action"`
-	Version int                    `json:"version"`
-	Params  map[string]interface{} `json:"params"`
-}
-
-type AnkiConnectResponse struct {
-	Result interface{} `json:"result"`
-	Error  interface{} `json:"error"`
+	Notes        []string `json:"notes"`
 }
 
 //nolint:forbidigo // fmt prints are cute
 func main() {
-	config := loadConfig()
+	cfg := config.Load()
 
 	fmt.Println("Finnish Anki Card Builder")
-	fmt.Printf("Using AI Provider: %s\n", config.AIProvider)
+	fmt.Printf("Using AI Provider: gemini\n")
 	fmt.Println("Enter Finnish words or phrases (type 'quit' to exit):")
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -72,14 +58,14 @@ func main() {
 		fmt.Printf("Processing: %s\n", input)
 
 		// Generate card data using AI
-		card, err := generateCard(config, input)
+		card, err := generateCard(cfg, input)
 		if err != nil {
 			fmt.Printf("Error generating card: %v\n", err)
 			continue
 		}
 
 		// Add card to Anki
-		err = addCardToAnki(config, card)
+		err = addCardToAnki(cfg, card)
 		if err != nil {
 			fmt.Printf("Error adding card to Anki: %v\n", err)
 			continue
@@ -89,80 +75,41 @@ func main() {
 	}
 }
 
-func loadConfig() *Config {
-	var cfg Config
-	cfgBytes, err := os.ReadFile("config.json")
-	if err != nil {
-		log.Fatalf("Failed to read config.json: %v", err)
-	}
-
-	err = json.Unmarshal(cfgBytes, &cfg)
-	if err != nil {
-		log.Fatalf("Failed to parse config.json: %v", err)
-	}
-
-	// Validate configuration
-	if cfg.AIProvider == "gemini" && cfg.GeminiAPIKey == "" {
-		log.Fatal("GEMINI_API_KEY environment variable is required when using Gemini")
-	}
-	if cfg.AIProvider == "openai" && cfg.OpenAIAPIKey == "" {
-		log.Fatal("OPENAI_API_KEY environment variable is required when using OpenAI")
-	}
-
-	return &cfg
-}
-
-func generateCard(config *Config, input string) (*FinnishCard, error) {
-	var aiResponse *AIResponse
-	var err error
-
-	switch config.AIProvider {
-	case "gemini":
-		aiResponse, err = generateWithGemini(config, input)
-	case "openai":
-		aiResponse, err = generateWithOpenAI(config, input)
-	default:
-		return nil, fmt.Errorf("unsupported AI provider: %s", config.AIProvider)
-	}
-
+func generateCard(cfg *config.Config, input string) (*FinnishCard, error) {
+	aiResponse, err := generateWithGemini(cfg, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query AI provider: %w", err)
 	}
 
+	var translations string
+	for i, tl := range aiResponse.Translations {
+		tl = "- " + strings.ToLower(tl)
+		if i > 0 {
+			translations += "<br>"
+		}
+		translations += tl
+	}
+
 	// Create card from AI response
 	card := &FinnishCard{
-		Finnish:        input,
-		Translation:    strings.Join(aiResponse.Translations, "; "),
-		FinnishExample: strings.Join(aiResponse.Examples, "\n\n"),
-		Notes:          aiResponse.Notes,
+		Finnish:        aiResponse.Phrase,
+		Translation:    translations,
+		FinnishExample: strings.Join(aiResponse.Examples, "<br>"),
+		Notes:          strings.Join(aiResponse.Notes, "<br>"),
 	}
 
 	return card, nil
 }
 
-func generateWithGemini(config *Config, input string) (*AIResponse, error) {
+func generateWithGemini(cfg *config.Config, input string) (*AIResponse, error) {
 	ctx := context.Background()
-	client := NewGeminiClient(config.GeminiAPIKey)
+	client := gemini.NewClient(cfg.GeminiAPIKey)
 
 	prompt := buildPrompt(input)
 
 	responseText, err := client.GenerateContent(ctx, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate content with Gemini: %w", err)
-	}
-
-	return parseAIResponse(responseText)
-}
-
-func generateWithOpenAI(config *Config, input string) (*AIResponse, error) {
-	ctx := context.Background()
-	client := NewOpenAIClient(config.OpenAIAPIKey)
-
-	prompt := buildPrompt(input)
-
-	responseText, err := client.GenerateContent(ctx, prompt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate content with OpenAI: %w", err)
 	}
 
 	return parseAIResponse(responseText)
@@ -175,6 +122,7 @@ For the Finnish word/phrase: "%s"
 
 Please provide a JSON response with the following structure:
 {
+  "phrase": "the original Finnish word/phrase in dictionary form, lowercase",
   "translations": ["translation1", "translation2", ...],
   "examples": [
     "Example sentence 1 in Finnish",
@@ -182,15 +130,23 @@ Please provide a JSON response with the following structure:
     "Example sentence 3 in Finnish",
     "Example sentence 4 in Finnish"
   ],
-  "notes": "Word origin, synonyms, grammatical information, usage quirks, and any other useful information for language learners"
+  "notes": [
+    "synonyms: abc, def...", 
+    "etymology: short info on word origin", 
+    "extra: grammatical information, usage quirks, and any other useful information for language learners"
+  ]
 }
 
 Guidelines:
-- Provide 1-3 translations (most common meanings)
-- Create 3-4 example sentences at B1-B2 level
-- Use the word in different grammatical cases/forms when possible
-- Include etymology, synonyms, grammatical notes, and usage tips in the notes section
+- Provide all relevant translations (most common meanings)
+- Create 3-4 example sentences at B1-B2 level, try to include examples for different translations of the word/phrase
 - Make examples natural and contextually rich
+- Use the word in different grammatical cases/forms when possible
+- Include etymology, synonyms, grammatical notes, and usage tips in the notes section, but don't add obvious information - keep it concise.
+- Use lowercase for notes
+- Make sure to add puhekieli versions of the word to synonyms if applicable
+- Try not to skip etymology if available
+- Keep the prefixes of the notes consistent (e.g. always use "synonyms:", "etymology:", "extra:")
 - Ensure JSON is properly formatted
 
 Respond ONLY with the JSON, no additional text.`, input)
@@ -219,13 +175,13 @@ func parseAIResponse(responseText string) (*AIResponse, error) {
 	return &aiResponse, nil
 }
 
-func addCardToAnki(config *Config, card *FinnishCard) error {
+func addCardToAnki(cfg *config.Config, card *FinnishCard) error {
 	ctx := context.Background()
-	client := NewAnkiConnectClient(config.AnkiConnectURL)
+	client := ankiclient.NewAnkiConnectClient(cfg.AnkiConnectURL)
 
 	// Check if AnkiConnect is available
 	if !client.IsAvailable(ctx) {
-		return fmt.Errorf("AnkiConnect is not available at %s", config.AnkiConnectURL)
+		return fmt.Errorf("AnkiConnect is not available at %s", cfg.AnkiConnectURL)
 	}
 
 	// Try to get available models to determine the correct field structure
@@ -282,8 +238,7 @@ func addCardToAnki(config *Config, card *FinnishCard) error {
 			card.Translation, card.FinnishExample, card.Notes)
 	}
 
-	// Add the card to Anki
-	err = client.AddNote(ctx, config.AnkiDeck, modelName, fieldMap, []string{"auto-generated", "finnish"})
+	err = client.AddNote(ctx, cfg.AnkiDeck, modelName, fieldMap, []string{"auto-generated", "finnish"})
 	if err != nil {
 		return fmt.Errorf("failed to add note: %w", err)
 	}

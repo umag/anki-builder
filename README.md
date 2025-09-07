@@ -1,11 +1,11 @@
 # Finnish Anki Card Builder
 
-A Go application that generates Finnish vocabulary cards for Anki using AI (Gemini or OpenAI) and adds them via AnkiConnect.
+A Go application that generates Finnish vocabulary cards for Anki using AI (Gemini) and adds them via AnkiConnect.
 
 ## Features
 
 - Interactive console input for Finnish words/phrases
-- Support for both Gemini and OpenAI APIs (interchangeable)
+- Support for Gemini API
 - Generates comprehensive vocabulary cards with:
   - Multiple translations
   - 3-4 example sentences at B1-B2 level
@@ -16,32 +16,20 @@ A Go application that generates Finnish vocabulary cards for Anki using AI (Gemi
 ## Prerequisites
 
 1. **Anki** with **AnkiConnect** addon installed
-2. API key for either **Google Gemini** or **OpenAI**
+2. API key for **Google Gemini** 
 
 ## Setup
 
 1. Clone or download this project
-2. Copy `.env.example` to `.env` and fill in your configuration:
+2. Copy `config.json.example` to `config.json` and fill in your configuration:
    ```bash
-   cp .env.example .env
+   cp config.json.example config.json
    ```
-3. Edit `.env` with your settings:
-   ```
-   AI_PROVIDER=gemini  # or "openai"
-   GEMINI_API_KEY=your_gemini_api_key_here
-   OPENAI_API_KEY=your_openai_api_key_here
-   ANKI_DECK=Finnish
-   ANKI_CONNECT_URL=http://localhost:8765
-   ```
+3. Edit `config.json` with your settings:
 
 ## Installation
 
-1. Install Go dependencies:
-   ```bash
-   go mod tidy
-   ```
-
-2. Build the application:
+1. Build the application:
    ```bash
    go build -o anki-builder
    ```
@@ -60,14 +48,6 @@ A Go application that generates Finnish vocabulary cards for Anki using AI (Gemi
 
 3. Enter Finnish words or phrases when prompted
 4. Type `quit` to exit
-
-## Environment Variables
-
-- `AI_PROVIDER`: Choose between "gemini" or "openai"
-- `GEMINI_API_KEY`: Your Google Gemini API key (required if using Gemini)
-- `OPENAI_API_KEY`: Your OpenAI API key (required if using OpenAI)
-- `ANKI_DECK`: Target Anki deck name (default: "Finnish")
-- `ANKI_CONNECT_URL`: AnkiConnect URL (default: "http://localhost:8765")
 
 ## AnkiConnect Setup
 
@@ -94,12 +74,7 @@ The application supports two field structures:
 ### Google Gemini
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Create a new API key
-3. Add it to your `.env` file
-
-### OpenAI
-1. Go to [OpenAI API Keys](https://platform.openai.com/api-keys)
-2. Create a new API key
-3. Add it to your `.env` file
+3. Add it to your `config` file
 
 ## Example Usage
 

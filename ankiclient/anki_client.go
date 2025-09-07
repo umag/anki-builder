@@ -1,5 +1,5 @@
 //nolint:mnd // fuck you
-package main
+package ankiclient
 
 import (
 	"bytes"
@@ -11,6 +11,17 @@ import (
 )
 
 const ankiRequestTimeout = 5 * time.Second
+
+type AnkiConnectRequest struct {
+	Action  string                 `json:"action"`
+	Version int                    `json:"version"`
+	Params  map[string]interface{} `json:"params"`
+}
+
+type AnkiConnectResponse struct {
+	Result interface{} `json:"result"`
+	Error  interface{} `json:"error"`
+}
 
 // AnkiConnectClient handles AnkiConnect API interactions
 type AnkiConnectClient struct {
