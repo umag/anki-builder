@@ -8,7 +8,7 @@ import (
 
 type Config struct {
 	GeminiAPIKey   string `json:"geminiApiKey"`
-	AnkiDeck       string `json:"ankiDeck"`
+	AnkiDeckName   string `json:"ankiDeckName"`
 	AnkiConnectURL string `json:"ankiConnectUrl"`
 }
 

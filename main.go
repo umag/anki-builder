@@ -48,7 +48,7 @@ func main() {
 
 	ankiClient := ankiclient.NewAnkiConnectClient(cfg.AnkiConnectURL)
 	if !ankiClient.IsAvailable(ctx) {
-		log.Fatalf("AnkiConnect is not available at %s\n", ankiClient.BaseURL) //nolint:gocritic // os.Exit is fine here
+		log.Fatalf("AnkiConnect is not available at %s", ankiClient.BaseURL) //nolint:gocritic // os.Exit is fine here
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -56,16 +56,16 @@ func main() {
 
 	go func() {
 		sig := <-sigChan
-		log.Printf("\nReceived %v signal. Shutting down...\n", sig)
+		log.Printf("\nReceived %v signal. Shutting down...", sig)
 		cancel()
 
 		time.Sleep(shutdownTimeout)
-		log.Printf("Slept for %s, force exit triggered\n", shutdownTimeout)
+		log.Printf("Slept for %s, force exit triggered", shutdownTimeout)
 		os.Exit(1)
 	}()
 
 	log.Print("Finnish Anki Card Builder")
-	log.Printf("Using AI Provider: gemini\n")
+	log.Printf("Using AI Provider: gemini")
 	log.Print("Enter Finnish words or phrases (to exit use Ctrl+C or type 'q', 'quit' or 'exit'):")
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -107,17 +107,17 @@ loop:
 				log.Print("Operation cancelled. Shutting down...")
 				return
 			}
-			log.Printf("Error generating card: %v\n", err)
+			log.Printf("Error generating card: %v", err)
 			continue
 		}
 
-		err = addCardToAnki(ctx, ankiClient, cfg.AnkiDeck, card)
+		err = addCardToAnki(ctx, ankiClient, cfg.AnkiDeckName, card)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				log.Print("Operation cancelled. Shutting down...")
 				break loop
 			}
-			log.Printf("Error adding card to Anki: %v\n", err)
+			log.Printf("Error adding card to Anki: %v", err)
 			continue
 		}
 
