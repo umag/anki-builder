@@ -26,7 +26,7 @@ func NewClient(apiKey string) *Client {
 }
 
 func (g *Client) GenerateContent(ctx context.Context, prompt string) (string, error) {
-	url := fmt.Sprintf("%s/gemini-2.0-flash:generateContent?key=%s", g.BaseURL, g.APIKey)
+	url := fmt.Sprintf("%s/gemini-2.5-flash:generateContent?key=%s", g.BaseURL, g.APIKey)
 
 	requestBody := map[string]interface{}{
 		"contents": []map[string]interface{}{
