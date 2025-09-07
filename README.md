@@ -93,7 +93,3 @@ Processing: mennä kauppaan
 > quit
 Goodbye!
 ```
-
-## License
-
-MIT License
