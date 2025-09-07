@@ -1,0 +1,7 @@
+{
+    "aiProvider": "gemini", // "gemini" or "openai"
+    "geminiApiKey": "key_goes_here",
+    "openaiApiKey": "key_goes_here",
+    "ankiDeck": "Finnish",
+    "ankiConnectUrl": "http://localhost:8765"
+}
