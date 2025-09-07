@@ -39,16 +39,25 @@ type AIResponse struct {
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatalf("error: %v", err)
+	}
+}
+
+func run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	log.SetFlags(0)
 
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("error loading config: %w", err)
+	}
 
 	ankiClient := ankiclient.NewAnkiConnectClient(cfg.AnkiConnectURL)
 	if !ankiClient.IsAvailable(ctx) {
-		log.Fatalf("AnkiConnect is not available at %s", ankiClient.BaseURL) //nolint:gocritic // os.Exit is fine here
+		return fmt.Errorf("AnkiConnect is not available at %s", ankiClient.BaseURL)
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -104,8 +113,7 @@ loop:
 		card, err := generateCard(ctx, cfg, input)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
-				log.Print("Operation cancelled. Shutting down...")
-				return
+				return errors.New("operation cancelled, shutting down")
 			}
 			log.Printf("Error generating card: %v", err)
 			continue
@@ -125,6 +133,7 @@ loop:
 	}
 
 	log.Print("Goodbye!")
+	return nil
 }
 
 func generateCard(ctx context.Context, cfg *config.Config, input string) (*FinnishCard, error) {

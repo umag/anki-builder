@@ -2,9 +2,16 @@ package config
 
 import (
 	"encoding/json"
-	"log"
+	"errors"
+	"fmt"
 	"os"
+	"strings"
 )
+
+var pathList = []string{
+	"config.json",
+	"$XDG_CONFIG_HOME/anki-builder/config.json",
+}
 
 type Config struct {
 	GeminiAPIKey   string `json:"geminiApiKey"`
@@ -12,21 +19,44 @@ type Config struct {
 	AnkiConnectURL string `json:"ankiConnectUrl"`
 }
 
-func Load() *Config {
-	var cfg Config
-	cfgBytes, err := os.ReadFile("config.json")
-	if err != nil {
-		log.Fatalf("Failed to read config.json: %v", err)
+func Load() (*Config, error) {
+	var cfgBytes []byte
+
+	for _, path := range pathList {
+		var err error
+		path = os.ExpandEnv(path)
+		cfgBytes, err = os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("found but failed to read config file %s: %w", path, err)
+		}
+
+		break
 	}
 
-	err = json.Unmarshal(cfgBytes, &cfg)
+	if cfgBytes == nil {
+		return nil, fmt.Errorf("no config file found in paths: \n%s", strings.Join(pathList, "\n"))
+	}
+
+	var cfg Config
+	err := json.Unmarshal(cfgBytes, &cfg)
 	if err != nil {
-		log.Fatalf("Failed to parse config.json: %v", err)
+		return nil, fmt.Errorf("failed to parse config.json: %w", err)
+	}
+
+	if cfg.AnkiDeckName == "" {
+		return nil, errors.New("anki deck name config value is required")
+	}
+
+	if cfg.AnkiConnectURL == "" {
+		return nil, errors.New("anki connect url config value is required")
 	}
 
 	if cfg.GeminiAPIKey == "" {
-		log.Fatal("gemini api key config value is required")
+		return nil, errors.New("gemini api key config value is required")
 	}
 
-	return &cfg
+	return &cfg, nil
 }
