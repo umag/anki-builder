@@ -8,12 +8,17 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"anki-builder/aislop/gemini"
 	"anki-builder/ankiclient"
 	"anki-builder/config"
 )
+
+const shutdownTimeout = 5 * time.Second
 
 type FinnishCard struct {
 	Finnish        string
@@ -33,22 +38,51 @@ type AIResponse struct {
 func main() {
 	cfg := config.Load()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigChan
+		fmt.Printf("\nReceived %v signal. Shutting down...\n", sig)
+		cancel()
+
+		time.Sleep(shutdownTimeout)
+		fmt.Printf("Slept for %s, force exit triggered", shutdownTimeout)
+		os.Exit(1)
+	}()
+
 	fmt.Println("Finnish Anki Card Builder")
 	fmt.Printf("Using AI Provider: gemini\n")
-	fmt.Println("Enter Finnish words or phrases (type 'quit' to exit):")
+	fmt.Println("Enter Finnish words or phrases (to exit use Ctrl+C or type 'q', 'quit' or 'exit'):")
 
 	scanner := bufio.NewScanner(os.Stdin)
+	dataChan := make(chan string)
 
+loop:
 	for {
-		fmt.Print("> ")
-		if !scanner.Scan() {
-			break
+		go func() {
+			fmt.Print("> ")
+			if !scanner.Scan() {
+				dataChan <- "quit"
+			}
+
+			input := strings.TrimSpace(scanner.Text())
+			dataChan <- input
+		}()
+
+		var input string
+		// Check if context was cancelled
+		select {
+		case <-ctx.Done():
+			break loop
+		case input = <-dataChan:
 		}
 
-		input := strings.TrimSpace(scanner.Text())
-		if input == "quit" {
-			fmt.Println("Goodbye!")
-			break
+		if input == "quit" || input == "q" || input == "exit" {
+			break loop
 		}
 
 		if input == "" {
@@ -57,26 +91,34 @@ func main() {
 
 		fmt.Printf("Processing: %s\n", input)
 
-		// Generate card data using AI
-		card, err := generateCard(cfg, input)
+		card, err := generateCard(ctx, cfg, input)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				fmt.Println("Operation cancelled. Shutting down...")
+				return
+			}
 			fmt.Printf("Error generating card: %v\n", err)
 			continue
 		}
 
-		// Add card to Anki
-		err = addCardToAnki(cfg, card)
+		err = addCardToAnki(ctx, cfg, card)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				fmt.Println("Operation cancelled. Shutting down...")
+				break loop
+			}
 			fmt.Printf("Error adding card to Anki: %v\n", err)
 			continue
 		}
 
 		fmt.Printf("✅ Successfully added card for '%s'\n\n", input)
 	}
+
+	fmt.Println("Goodbye!")
 }
 
-func generateCard(cfg *config.Config, input string) (*FinnishCard, error) {
-	aiResponse, err := generateWithGemini(cfg, input)
+func generateCard(ctx context.Context, cfg *config.Config, input string) (*FinnishCard, error) {
+	aiResponse, err := generateWithGemini(ctx, cfg, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query AI provider: %w", err)
 	}
@@ -90,7 +132,6 @@ func generateCard(cfg *config.Config, input string) (*FinnishCard, error) {
 		translations += tl
 	}
 
-	// Create card from AI response
 	card := &FinnishCard{
 		Finnish:        aiResponse.Phrase,
 		Translation:    translations,
@@ -101,8 +142,7 @@ func generateCard(cfg *config.Config, input string) (*FinnishCard, error) {
 	return card, nil
 }
 
-func generateWithGemini(cfg *config.Config, input string) (*AIResponse, error) {
-	ctx := context.Background()
+func generateWithGemini(ctx context.Context, cfg *config.Config, input string) (*AIResponse, error) {
 	client := gemini.NewClient(cfg.GeminiAPIKey)
 
 	prompt := buildPrompt(input)
@@ -175,8 +215,7 @@ func parseAIResponse(responseText string) (*AIResponse, error) {
 	return &aiResponse, nil
 }
 
-func addCardToAnki(cfg *config.Config, card *FinnishCard) error {
-	ctx := context.Background()
+func addCardToAnki(ctx context.Context, cfg *config.Config, card *FinnishCard) error {
 	client := ankiclient.NewAnkiConnectClient(cfg.AnkiConnectURL)
 
 	// Check if AnkiConnect is available
