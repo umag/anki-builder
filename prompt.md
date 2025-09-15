@@ -13,22 +13,23 @@ Please provide a JSON response with the following structure:
     "Example sentence 4 in Finnish"
   ],
   "notes": [
-    "synonyms: abc, def...", 
-    "etymology: short info on word origin", 
+    "synonyms: abc, def... (include puhekieli/informal variants if applicable)", 
+    "etymology: brief origin info for loanwords which would help with remembering the word (so skip proto-Germanic/proto-Finnic origins)", 
     "extra: grammatical information, usage quirks, and any other useful information for language learners"
   ]
 }
 
 Guidelines:
+- If the word I provided is not in nominative (dictionary) form - use the dictionary form when writing examples and notes
 - Provide all relevant translations (most common meanings)
 - Create 3-4 example sentences at B1-B2 level, try to include examples for different translations of the word/phrase
+- Try to use the word/phrase in different grammatical cases in different example sentences (if applicable)
 - Make examples natural and contextually rich
 - Use the word in different grammatical cases/forms when possible
-- Include etymology, synonyms, grammatical notes, and usage tips in the notes section, but don't add obvious information - keep it concise.
+- For etymology, synonyms, grammatical notes, and usage tips in the notes section - don't add obvious information, keep it concise
 - Use lowercase for notes
-- Make sure to add puhekieli versions of the word to synonyms if applicable
-- Try not to skip etymology if available
 - Keep the prefixes of the notes consistent (e.g. always use "synonyms:", "etymology:", "extra:")
+- Don't use any formatting (markdown or anything else), just plain text
 - Ensure JSON is properly formatted
 
 Respond ONLY with the JSON, no additional text.
