@@ -18,7 +18,7 @@ Guidelines:
 - If the word I provided is not in nominative (dictionary) form - use the
   dictionary form when writing examples and notes
 - Provide all relevant translations (most common meanings)
-- Create 3-4 example sentences at B1-B2 level, try to include examples for
+- Create 3-4 example sentences at A0-A1 level, try to include examples for
   different translations of the word/phrase
 - Try to use the word/phrase in different grammatical cases in different example
   sentences (if applicable)
