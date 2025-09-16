@@ -24,11 +24,11 @@ const shutdownTimeout = 5 * time.Second
 //go:embed prompt.md
 var promptTemplate string
 
-type FinnishCard struct {
-	Finnish        string
-	Translation    string
-	FinnishExample string
-	Notes          string
+type NederlandsCard struct {
+	Nederlands        string
+	Translation       string
+	NederlandsExample string
+	Notes             string
 }
 
 type AIResponse struct {
@@ -73,9 +73,9 @@ func run() error {
 		os.Exit(1)
 	}()
 
-	log.Print("Finnish Anki Card Builder")
+	log.Print("Nederlands Anki Card Builder")
 	log.Printf("Using AI Provider: gemini")
-	log.Print("Enter Finnish words or phrases (to exit use Ctrl+C or type 'q', 'quit' or 'exit'):")
+	log.Print("Enter Nederlands words or phrases (to exit use Ctrl+C or type 'q', 'quit' or 'exit'):")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	dataChan := make(chan string)
@@ -129,14 +129,14 @@ loop:
 			continue
 		}
 
-		log.Printf("✅ Successfully added card for: \nword: '%s'", card.Finnish)
+		log.Printf("✅ Successfully added card for: \nword: '%s'", card.Nederlands)
 	}
 
 	log.Print("Goodbye!")
 	return nil
 }
 
-func generateCard(ctx context.Context, cfg *config.Config, input string) (*FinnishCard, error) {
+func generateCard(ctx context.Context, cfg *config.Config, input string) (*NederlandsCard, error) {
 	aiResponse, err := generateWithGemini(ctx, cfg, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query AI provider: %w", err)
@@ -151,11 +151,11 @@ func generateCard(ctx context.Context, cfg *config.Config, input string) (*Finni
 		translations += tl
 	}
 
-	card := &FinnishCard{
-		Finnish:        aiResponse.Phrase,
-		Translation:    translations,
-		FinnishExample: strings.Join(aiResponse.Examples, "<br>"),
-		Notes:          strings.Join(aiResponse.Notes, "<br>"),
+	card := &NederlandsCard{
+		Nederlands:        aiResponse.Phrase,
+		Translation:       translations,
+		NederlandsExample: strings.Join(aiResponse.Examples, "<br>"),
+		Notes:             strings.Join(aiResponse.Notes, "<br>"),
 	}
 
 	return card, nil
@@ -201,7 +201,7 @@ func parseAIResponse(responseText string) (*AIResponse, error) {
 	return &aiResponse, nil
 }
 
-func addCardToAnki(ctx context.Context, client *ankiclient.AnkiConnectClient, deckname string, card *FinnishCard) error {
+func addCardToAnki(ctx context.Context, client *ankiclient.AnkiConnectClient, deckname string, card *NederlandsCard) error {
 	if !client.IsAvailable(ctx) {
 		return fmt.Errorf("AnkiConnect is not available at %s", client.BaseURL)
 	}
@@ -213,7 +213,7 @@ func addCardToAnki(ctx context.Context, client *ankiclient.AnkiConnectClient, de
 
 	modelName := "Basic"
 	for _, model := range models {
-		if strings.Contains(strings.ToLower(model), "finnish") {
+		if strings.Contains(strings.ToLower(model), "nederlands") {
 			modelName = model
 			break
 		}
@@ -229,7 +229,7 @@ func addCardToAnki(ctx context.Context, client *ankiclient.AnkiConnectClient, de
 	fieldMap := make(map[string]string)
 
 	hasCustomFields := false
-	customFieldNames := []string{"Finnish", "Translation", "Finnish Example", "Notes"}
+	customFieldNames := []string{"Nederlands", "Translation", "Nederlands Example", "Notes"}
 	for _, customField := range customFieldNames {
 		for _, field := range fields {
 			if field == customField {
@@ -243,17 +243,17 @@ func addCardToAnki(ctx context.Context, client *ankiclient.AnkiConnectClient, de
 	}
 
 	if hasCustomFields {
-		fieldMap["Finnish"] = card.Finnish
+		fieldMap["Nederlands"] = card.Nederlands
 		fieldMap["Translation"] = card.Translation
-		fieldMap["Finnish Example"] = card.FinnishExample
+		fieldMap["Nederlands Example"] = card.NederlandsExample
 		fieldMap["Notes"] = card.Notes
 	} else {
-		fieldMap["Front"] = card.Finnish
+		fieldMap["Front"] = card.Nederlands
 		fieldMap["Back"] = fmt.Sprintf("**Translation:** %s\n\n**Examples:**\n%s\n\n**Notes:**\n%s",
-			card.Translation, card.FinnishExample, card.Notes)
+			card.Translation, card.NederlandsExample, card.Notes)
 	}
 
-	err = client.AddNote(ctx, deckname, modelName, fieldMap, []string{"auto-generated", "finnish"})
+	err = client.AddNote(ctx, deckname, modelName, fieldMap, []string{"auto-generated", "nederlands"})
 	if err != nil {
 		return fmt.Errorf("failed to add note: %w", err)
 	}

@@ -1,5 +1,5 @@
 {
     "geminiApiKey": "key_goes_here",
-    "ankiDeckName": "Finnish",
+    "ankiDeckName": "Nederlands",
     "ankiConnectUrl": "http://localhost:8765"
 }
